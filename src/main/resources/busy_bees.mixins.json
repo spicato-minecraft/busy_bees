@@ -1,0 +1,20 @@
+{
+	"required": true,
+	"package": "busy_bees.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"BeeDataMixin",
+		"BeeStayInHiveMixin",
+		"BeehiveReleaseMixin",
+		"BeePollinateGoalMixin",
+		"BeeValidateFlowerGoalMixin",
+		"BeeGrowCropGoalMixin",
+		"BeeEnterHiveGoalMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

@@ -1,0 +1,20 @@
+{
+	"schemaVersion": 1,
+	"id": "busy_bees_test",
+	"version": "${version}",
+	"name": "Busy Bees Game Tests",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-gametest": [
+			"busy_bees.gametest.ModLoadsGameTest",
+			"busy_bees.gametest.NightHiveGameTest",
+			"busy_bees.gametest.NightTargetGameTest",
+			"busy_bees.gametest.PitcherFlyoverFoundingGameTest"
+		]
+	},
+	"depends": {
+		"busy_bees": "*",
+		"fabric-api": "*",
+		"minecraft": "~1.21.11"
+	}
+}

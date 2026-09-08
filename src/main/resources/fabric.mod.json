@@ -1,0 +1,33 @@
+{
+	"schemaVersion": 1,
+	"id": "busy_bees",
+	"version": "${version}",
+	"name": "Busy Bees",
+	"description": "Bee gameplay: night torchflower work, stronger pitcher pollen, flyover vegetation, and overflow nest founding.",
+	"authors": [
+		"spicato"
+	],
+	"contact": {
+		"homepage": "https://github.com/spicato-minecraft/busy_bees",
+		"sources": "https://github.com/spicato-minecraft/busy_bees"
+	},
+	"license": "CC0-1.0",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"busy_bees.BusyBees"
+		],
+		"client": [
+			"busy_bees.BusyBeesClient"
+		]
+	},
+	"mixins": [
+		"busy_bees.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

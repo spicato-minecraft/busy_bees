@@ -1,0 +1,67 @@
+# Publishes to Modrinth when a GitHub Release is published.
+# Merge to a version branch does NOT trigger this workflow.
+
+name: publish
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+
+      - name: resolve java version
+        run: |
+          JAVA=$(sed -n 's/.*release = \([0-9]*\).*/\1/p' build.gradle | head -1)
+          echo "JAVA_VERSION=${JAVA:-21}" >> "$GITHUB_ENV"
+
+      - name: setup jdk
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+
+      - name: validate release tag and changelog
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          MC=$(grep '^minecraft_version=' gradle.properties | cut -d= -f2)
+          MOD=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
+          EXPECTED="${MC}-${MOD}"
+          if [ "$RELEASE_TAG" != "$EXPECTED" ]; then
+            echo "Release tag '$RELEASE_TAG' does not match gradle.properties ($EXPECTED)."
+            exit 1
+          fi
+          if [ ! -f "releases/${RELEASE_TAG}.md" ]; then
+            echo "Missing changelog file: releases/${RELEASE_TAG}.md"
+            exit 1
+          fi
+          echo "MINECRAFT_VERSION=$MC" >> "$GITHUB_ENV"
+
+      - name: validate gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: build
+        run: ./gradlew build
+
+      - name: upload to Modrinth
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: ${{ vars.MODRINTH_ID }}
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          version: ${{ github.event.release.tag_name }}
+          version-type: release
+          changelog-file: releases/${{ github.event.release.tag_name }}.md
+          loaders: fabric
+          game-versions: ${{ env.MINECRAFT_VERSION }}
+          files: |
+            build/libs/!(*-@(sources|dev|javadoc)).jar
+            build/libs/*-sources.jar
