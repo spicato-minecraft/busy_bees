@@ -1,15 +1,15 @@
 # Busy Bees
 
-Fabric mod for Minecraft **1.21.11**. Owns bee gameplay: night torchflower work, 1.3× pitcher-plant pollen, weaker flyover vegetation, and overflow nest founding. Pair with **Functional Torchflowers** for torchflower light (glow-only if Busy Bees is not installed).
+Fabric mod for Minecraft **26.1**. Owns bee gameplay: night torchflower work, 1.3× pitcher-plant pollen, weaker flyover vegetation, and overflow nest founding. Pair with **Functional Torchflowers** for torchflower light (glow-only if Busy Bees is not installed).
 
 ## Compatibility
 
 | Component     | Version           |
 |---------------|-------------------|
-| Minecraft     | 1.21.11           |
+| Minecraft     | 26.1              |
 | Fabric Loader | 0.19.3+           |
-| Fabric API    | 0.141.6+1.21.11   |
-| Java          | 21+               |
+| Fabric API    | 0.145.1+26.1      |
+| Java          | 25+               |
 
 ## Build
 
@@ -29,12 +29,12 @@ The output JAR is at `build/libs/busy_bees-1.0.0.jar` (version from `gradle.prop
 ./gradlew build         # full CI gate (includes both)
 ```
 
-Play the indexed local set from [`../dev-pack`](../dev-pack/README.md) (`./gradlew runClient` there).
+Play the indexed local set from [`../dev-pack-26.1`](../dev-pack-26.1/README.md) (`./gradlew runClient` there).
 
 ## Install
 
-1. Install [Fabric Loader](https://fabricmc.net/use/) for Minecraft 1.21.11.
-2. Download [Fabric API](https://modrinth.com/mod/fabric-api) for 1.21.11 and place it in your mods folder.
+1. Install [Fabric Loader](https://fabricmc.net/use/) for Minecraft 26.1.
+2. Download [Fabric API](https://modrinth.com/mod/fabric-api) for 26.1 and place it in your mods folder.
 3. Copy the built JAR into your Minecraft `mods` folder.
 4. Optional: install Functional Torchflowers for torchflower light.
 
@@ -42,22 +42,22 @@ Play the indexed local set from [`../dev-pack`](../dev-pack/README.md) (`./gradl
 
 Each supported Minecraft version has its own long-lived branch named after the exact `minecraft_version` in `gradle.properties`. Version branches are the source of truth; `main` is not used.
 
-- **Default branch:** `1.21.11`
+- **Default branch:** `26.1`
 - **Feature/fix work:** branch from the target version as `{version}/feature-name`, merge back into the version branch
 
 ```bash
 git clone https://github.com/spicato-minecraft/busy_bees.git
 cd busy_bees
-git checkout 1.21.11
+git checkout 26.1
 ```
 
 ## Releases and Modrinth
 
 Merging code does **not** publish to Modrinth. Publishing happens only when a GitHub Release is created.
 
-Release tags use `{minecraft_version}-{mod_version}` (e.g. `1.21.11-1.0.0`), matching `gradle.properties`.
+Release tags use `{minecraft_version}-{mod_version}` (e.g. `26.1-1.0.0`), matching `gradle.properties`.
 
-1. Merge your changes into the version branch (e.g. `1.21.11`).
+1. Merge your changes into the version branch (e.g. `26.1`).
 2. Bump `mod_version` in `gradle.properties` if shipping new player-facing changes.
 3. Add a changelog at `releases/{tag}.md` — see `releases/TEMPLATE.md`.
 4. Create a GitHub Release with tag `{minecraft_version}-{mod_version}` targeting the version branch.
@@ -68,19 +68,20 @@ See [minecraft-mods/docs/README.md](../docs/README.md) for org-wide release conv
 
 | Layer      | Purpose |
 |------------|---------|
-| Unit tests | Qualifying torchflowers, pitcher plant vs crop, founding band, flyover exclusions |
-| GameTests  | Night stay/target, founding skip/place, pitcher/flyover predicates |
+| Unit tests | Qualifying torchflowers, pitcher plant vs crop, founding band, adult-only founding age, flyover pollen targets, in-hive breeding |
+| GameTests  | Night stay/target, founding skip/place/dwell-enter, pitcher/flyover predicates |
 
 Behavior tests are tracked in [Notion Tasks](https://app.notion.com/p/3b716e8d4da380adbd93cf0a73b39d5c). Manual UAT items live in the Mod Catalog.
 
 ## Architecture
 
-Vanilla 1.21.11 keeps bees in hives via `EnvironmentAttributes.BEES_STAY_IN_HIVE`. This mod:
+Vanilla 26.1 keeps bees in hives via `EnvironmentAttributes.BEES_STAY_IN_HIVE`. This mod:
 
 1. Opens the hive at night when a qualifying torchflower is in vanilla nectar range (rain still homes).
 2. Restricts night nectar targeting to those torchflowers.
 3. Marks nectar from a mature two-block pitcher plant and shortens crop-grow delay by 1.3×.
-4. Applies throttled weaker bone meal to non-farmland surfaces while carrying pollen.
-5. When a hive is full and no other hive/nest is in range, surplus bees found a nest on logs/leaves in a ~22–40 band.
+4. About every 4 seconds (staggered per bee), while carrying pollen, bone-meals the first bonemealable block or crop directly below the bee (no height cap). Bare farmland is skipped; a crop on farmland is used instead.
+5. When a hive is full and no other hive/nest is in the founding band, a surplus **adult** picks a log/leaf nest site 22–40 out, flies there, and must stay within 2 blocks of that air block for ~30s. Leaving the spot resets the dwell. Then one nest appears and the bee enters it. Babies never found.
+6. Using a bee-food flower on a hive or nest feeds stored bees with vanilla love rules: one flower loves one ready adult (`InLove` on that occupant’s NBT). That adult cannot be fed again until love ends and `Age` is 0. A second flower on a second ready adult breeds them (both get the 6000-tick cooldown). Hearts play only for love or birth. If no adult can fall in love, a stored baby can still be age-up fed (happy-villager particles). The baby stays in the hive if there is room, otherwise it appears in front of the hive.
 
-Bees do not self-breed. Population still comes from player-fed vanilla breeding.
+Bees do not self-breed. Population still comes from player-fed flowers, including while bees are inside the hive.

@@ -15,7 +15,7 @@ public abstract class BeeValidateFlowerGoalMixin {
 
 	@Shadow
 	@Final
-	Bee field_52460;
+	Bee this$0;
 
 	@WrapOperation(
 			method = "isFlower",
@@ -25,6 +25,6 @@ public abstract class BeeValidateFlowerGoalMixin {
 			)
 	)
 	private boolean busyBees$nightValidate(BlockState state, Operation<Boolean> original) {
-		return BusyBeeSupport.attractsBee(this.field_52460.level(), this.field_52460.blockPosition(), state, original.call(state));
+		return BusyBeeSupport.attractsBee(this.this$0.level(), this.this$0.blockPosition(), state, original.call(state));
 	}
 }

@@ -3,6 +3,7 @@ package busy_bees.mixin;
 import busy_bees.BusyBeeData;
 import busy_bees.BusyBeeSupport;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.animal.bee.Bee;
 import net.minecraft.world.level.storage.ValueInput;
@@ -26,6 +27,17 @@ public abstract class BeeDataMixin implements BusyBeeData {
 	@Unique
 	@Nullable
 	private BlockPos busyBees$originHive;
+
+	@Unique
+	@Nullable
+	private BlockPos busyBees$foundingTarget;
+
+	@Unique
+	@Nullable
+	private Direction busyBees$foundingFacing;
+
+	@Unique
+	private int busyBees$foundingDwell;
 
 	@Override
 	public boolean busyBees$hasPitcherPollen() {
@@ -57,6 +69,54 @@ public abstract class BeeDataMixin implements BusyBeeData {
 		this.busyBees$originHive = origin;
 	}
 
+	@Override
+	public @Nullable BlockPos busyBees$foundingTarget() {
+		return this.busyBees$foundingTarget;
+	}
+
+	@Override
+	public void busyBees$setFoundingTarget(@Nullable BlockPos target) {
+		this.busyBees$foundingTarget = target;
+	}
+
+	@Override
+	public @Nullable Direction busyBees$foundingFacing() {
+		return this.busyBees$foundingFacing;
+	}
+
+	@Override
+	public void busyBees$setFoundingFacing(@Nullable Direction facing) {
+		this.busyBees$foundingFacing = facing;
+	}
+
+	@Override
+	public int busyBees$foundingDwell() {
+		return this.busyBees$foundingDwell;
+	}
+
+	@Override
+	public void busyBees$setFoundingDwell(int ticks) {
+		this.busyBees$foundingDwell = ticks;
+	}
+
+	@Override
+	public void busyBees$beginFounding(BlockPos origin) {
+		this.busyBees$founding = true;
+		this.busyBees$originHive = origin;
+		this.busyBees$foundingTarget = null;
+		this.busyBees$foundingFacing = null;
+		this.busyBees$foundingDwell = 0;
+	}
+
+	@Override
+	public void busyBees$clearFounding() {
+		this.busyBees$founding = false;
+		this.busyBees$originHive = null;
+		this.busyBees$foundingTarget = null;
+		this.busyBees$foundingFacing = null;
+		this.busyBees$foundingDwell = 0;
+	}
+
 	@Inject(method = "setHasNectar", at = @At("TAIL"))
 	private void busyBees$clearPitcherWhenNectarDrops(boolean hasNectar, CallbackInfo ci) {
 		if (!hasNectar) {
@@ -69,6 +129,9 @@ public abstract class BeeDataMixin implements BusyBeeData {
 		output.putBoolean("busy_bees.pitcher", this.busyBees$pitcherPollen);
 		output.putBoolean("busy_bees.founding", this.busyBees$founding);
 		output.storeNullable("busy_bees.origin", BlockPos.CODEC, this.busyBees$originHive);
+		output.storeNullable("busy_bees.target", BlockPos.CODEC, this.busyBees$foundingTarget);
+		output.storeNullable("busy_bees.facing", Direction.CODEC, this.busyBees$foundingFacing);
+		output.putInt("busy_bees.dwell", this.busyBees$foundingDwell);
 	}
 
 	@Inject(method = "readAdditionalSaveData", at = @At("TAIL"))
@@ -76,6 +139,9 @@ public abstract class BeeDataMixin implements BusyBeeData {
 		this.busyBees$pitcherPollen = input.getBooleanOr("busy_bees.pitcher", false);
 		this.busyBees$founding = input.getBooleanOr("busy_bees.founding", false);
 		this.busyBees$originHive = input.read("busy_bees.origin", BlockPos.CODEC).orElse(null);
+		this.busyBees$foundingTarget = input.read("busy_bees.target", BlockPos.CODEC).orElse(null);
+		this.busyBees$foundingFacing = input.read("busy_bees.facing", Direction.CODEC).orElse(null);
+		this.busyBees$foundingDwell = input.getIntOr("busy_bees.dwell", 0);
 	}
 
 	@Inject(method = "tick", at = @At("TAIL"))
@@ -85,29 +151,6 @@ public abstract class BeeDataMixin implements BusyBeeData {
 			return;
 		}
 		BusyBeeSupport.tryFlyoverVegetation(serverLevel, bee);
-		if (!this.busyBees$founding || this.busyBees$originHive == null) {
-			return;
-		}
-		BlockPos origin = this.busyBees$originHive;
-		if (!BusyBeeSupport.isInFoundingBand(origin, bee.blockPosition())) {
-			if (bee.tickCount % 20 == 0) {
-				BlockPos wander = BusyBeeSupport.outwardWanderTarget(origin, bee.getRandom());
-				bee.getNavigation().moveTo(wander.getX() + 0.5, bee.getY(), wander.getZ() + 0.5, 1.0);
-			}
-			return;
-		}
-		if (BusyBeeSupport.tryPlaceFoundingNest(serverLevel, origin, bee.blockPosition(), bee.getRandom())) {
-			BlockPos nest = BlockPos.findClosestMatch(
-					bee.blockPosition(),
-					4,
-					4,
-					pos -> serverLevel.getBlockState(pos).is(net.minecraft.world.level.block.Blocks.BEE_NEST)
-			).orElse(null);
-			if (nest != null) {
-				bee.setHivePos(nest);
-				this.busyBees$founding = false;
-				this.busyBees$originHive = null;
-			}
-		}
+		BusyBeeSupport.tickFounding(serverLevel, bee, this);
 	}
 }

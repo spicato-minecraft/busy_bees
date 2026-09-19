@@ -17,6 +17,7 @@ public class NightHiveGameTest {
 		BlockPos hive = new BlockPos(2, 1, 2);
 		context.setBlock(hive, Blocks.BEEHIVE);
 		context.setBlock(hive.east(), Blocks.TORCHFLOWER);
+		context.getLevel().setRainLevel(0.0F);
 		boolean stay = BusyBeeSupport.beesStayInHive(
 				context.getLevel(), context.absolutePos(hive), true, LOCAL, LOCAL_Y
 		);
@@ -29,6 +30,7 @@ public class NightHiveGameTest {
 		BlockPos hive = new BlockPos(2, 1, 2);
 		context.setBlock(hive, Blocks.BEEHIVE);
 		context.setBlock(hive.east(), Blocks.DANDELION);
+		context.getLevel().setRainLevel(0.0F);
 		boolean stay = BusyBeeSupport.beesStayInHive(
 				context.getLevel(), context.absolutePos(hive), true, LOCAL, LOCAL_Y
 		);
@@ -42,7 +44,6 @@ public class NightHiveGameTest {
 		context.setBlock(hive, Blocks.BEEHIVE);
 		context.setBlock(hive.east(), Blocks.TORCHFLOWER);
 		ServerLevel level = context.getLevel();
-		level.setWeatherParameters(0, 6000, true, false);
 		level.setRainLevel(1.0F);
 		context.assertTrue(level.isRaining(), "rain should be active");
 		boolean stay = BusyBeeSupport.beesStayInHive(level, context.absolutePos(hive), true, LOCAL, LOCAL_Y);

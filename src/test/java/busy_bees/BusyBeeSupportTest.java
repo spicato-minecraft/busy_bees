@@ -58,6 +58,25 @@ class BusyBeeSupportTest {
 	}
 
 	@Test
+	void onlyAdultsCanFoundNests() {
+		assertTrue(BusyBeeSupport.canFoundNestForAge(0));
+		assertFalse(BusyBeeSupport.canFoundNestForAge(-24000));
+		assertFalse(BusyBeeSupport.canFoundNest(null));
+	}
+
+	@Test
+	void foundingDwellTracksTheTargetNotAGlobalTimer() {
+		BlockPos target = new BlockPos(24, 4, 0);
+		assertTrue(BusyBeeSupport.isWithinFoundingStay(target, target));
+		assertTrue(BusyBeeSupport.isWithinFoundingStay(target.offset(2, 0, 0), target));
+		assertFalse(BusyBeeSupport.isWithinFoundingStay(target.offset(3, 0, 0), target));
+		assertEquals(1, BusyBeeSupport.nextFoundingDwell(0, true));
+		assertEquals(0, BusyBeeSupport.nextFoundingDwell(400, false));
+		assertFalse(BusyBeeSupport.foundingDwellComplete(BusyBeeSupport.FOUNDING_DWELL_TICKS - 1));
+		assertTrue(BusyBeeSupport.foundingDwellComplete(BusyBeeSupport.FOUNDING_DWELL_TICKS));
+	}
+
+	@Test
 	void foundingBandExcludesInnerHiveRange() {
 		BlockPos origin = BlockPos.ZERO;
 		assertFalse(BusyBeeSupport.isInFoundingBand(origin, new BlockPos(10, 0, 0)));
@@ -67,10 +86,20 @@ class BusyBeeSupportTest {
 	}
 
 	@Test
-	void farmlandAndCropsAreExcludedFromFlyover() {
-		assertTrue(BusyBeeSupport.isFarmlandOrCrop(Blocks.FARMLAND.defaultBlockState()));
-		assertTrue(BusyBeeSupport.isFarmlandOrCrop(Blocks.WHEAT.defaultBlockState()));
-		assertFalse(BusyBeeSupport.isFarmlandOrCrop(Blocks.GRASS_BLOCK.defaultBlockState()));
+	void cropsAndGrassAreFlyoverPollenTargets() {
+		assertTrue(BusyBeeSupport.isFlyoverPollenTarget(Blocks.GRASS_BLOCK.defaultBlockState()));
+		assertTrue(BusyBeeSupport.isFlyoverPollenTarget(Blocks.WHEAT.defaultBlockState()));
+		assertTrue(BusyBeeSupport.isBareFarmland(Blocks.FARMLAND.defaultBlockState()));
+		assertFalse(BusyBeeSupport.isFlyoverPollenTarget(Blocks.FARMLAND.defaultBlockState()));
+		assertFalse(BusyBeeSupport.isFlyoverPollenTarget(Blocks.STONE.defaultBlockState()));
+	}
+
+	@Test
+	void flyoverAttemptsAreStaggeredAcrossBees() {
+		assertTrue(BusyBeeSupport.shouldAttemptFlyover(80, 0));
+		assertFalse(BusyBeeSupport.shouldAttemptFlyover(81, 0));
+		assertFalse(BusyBeeSupport.shouldAttemptFlyover(80, 1));
+		assertTrue(BusyBeeSupport.shouldAttemptFlyover(79, 1));
 	}
 
 	@Test

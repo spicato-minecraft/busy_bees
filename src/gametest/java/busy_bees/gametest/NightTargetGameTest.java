@@ -14,7 +14,6 @@ public class NightTargetGameTest {
 	public void nightTargetsOnlyQualifyingTorchflowers(GameTestHelper context) {
 		context.setBlock(new BlockPos(1, 1, 1), Blocks.STONE);
 		var level = context.getLevel();
-		level.setWeatherParameters(99999, 0, false, false);
 		level.setRainLevel(0.0F);
 		context.assertTrue(
 				BusyBeeSupport.attractsBee(level, Blocks.TORCHFLOWER.defaultBlockState(), true, true),
@@ -40,7 +39,6 @@ public class NightTargetGameTest {
 	public void daytimeKeepsVanillaFlowerTargets(GameTestHelper context) {
 		context.setBlock(new BlockPos(1, 1, 1), Blocks.STONE);
 		var level = context.getLevel();
-		level.setWeatherParameters(99999, 0, false, false);
 		level.setRainLevel(0.0F);
 		boolean dandelionVanilla = Bee.attractsBees(Blocks.DANDELION.defaultBlockState());
 		context.assertTrue(dandelionVanilla, "dandelion is a vanilla bee flower");

@@ -14,14 +14,14 @@ public abstract class BeeGrowCropGoalMixin {
 
 	@Shadow
 	@Final
-	Bee field_20373;
+	Bee this$0;
 
 	@ModifyArg(
 			method = "tick",
 			at = @At(value = "INVOKE", target = "Lnet/minecraft/util/RandomSource;nextInt(I)I")
 	)
 	private int busyBees$pitcherGrowRate(int bound) {
-		boolean pitcher = ((BusyBeeData) this.field_20373).busyBees$hasPitcherPollen();
+		boolean pitcher = ((BusyBeeData) this.this$0).busyBees$hasPitcherPollen();
 		return BusyBeeSupport.growCropDelay(bound, pitcher);
 	}
 }

@@ -17,7 +17,7 @@ public abstract class BeePollinateGoalMixin {
 
 	@Shadow
 	@Final
-	Bee field_20377;
+	Bee this$0;
 
 	@WrapOperation(
 			method = "findNearbyFlower",
@@ -27,7 +27,7 @@ public abstract class BeePollinateGoalMixin {
 			)
 	)
 	private boolean busyBees$nightTargets(BlockState state, Operation<Boolean> original) {
-		return BusyBeeSupport.attractsBee(this.field_20377.level(), this.field_20377.blockPosition(), state, original.call(state));
+		return BusyBeeSupport.attractsBee(this.this$0.level(), this.this$0.blockPosition(), state, original.call(state));
 	}
 
 	@WrapOperation(

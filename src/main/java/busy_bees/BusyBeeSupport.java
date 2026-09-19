@@ -6,15 +6,19 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.animal.bee.Bee;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.BonemealableBlock;
 import net.minecraft.world.level.block.CropBlock;
-import net.minecraft.world.level.block.FarmBlock;
 import net.minecraft.world.level.block.StemBlock;
 import net.minecraft.world.level.block.TorchflowerCropBlock;
 import net.minecraft.world.level.block.entity.BeehiveBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
 import org.jspecify.annotations.Nullable;
 
 public final class BusyBeeSupport {
@@ -23,9 +27,15 @@ public final class BusyBeeSupport {
 	public static final int HIVE_NECTAR_VERTICAL = 8;
 	public static final int FOUNDING_MIN = 22;
 	public static final int FOUNDING_MAX = 40;
+	/** Bee must stay this close to the chosen nest air block. */
+	public static final int FOUNDING_STAY_RADIUS = 2;
+	/** ~30s at 20 tps, counted only while inside {@link #FOUNDING_STAY_RADIUS}. */
+	public static final int FOUNDING_DWELL_TICKS = 600;
 	public static final float PITCHER_POLLEN_MULTIPLIER = 1.3F;
 	/** Vanilla BeeGrowCropGoal uses delay 30; 30/1.3 ≈ 23 for 1.3× attempts. */
 	public static final int VANILLA_GROW_CHANCE_DELAY = 30;
+	/** ~4s at 20 tps. Staggered by entity id so bees do not all scan the same tick. */
+	public static final int FLYOVER_INTERVAL_TICKS = 80;
 
 	private BusyBeeSupport() {
 	}
@@ -131,13 +141,23 @@ public final class BusyBeeSupport {
 		return hive != null && hive.isFull();
 	}
 
-	public static boolean shouldStartFounding(Level level, BlockPos originHive, BeehiveBlockEntity hive) {
-		return isHiveFull(hive) && !isOtherHiveOrNestInRange(level, originHive);
+	public static boolean canFoundNestForAge(int age) {
+		return age >= 0;
+	}
+
+	public static boolean canFoundNest(Bee bee) {
+		return bee != null && canFoundNestForAge(bee.getAge());
+	}
+
+	public static boolean shouldStartFounding(Level level, BlockPos originHive, BeehiveBlockEntity hive, Bee bee) {
+		return canFoundNest(bee) && isHiveFull(hive) && !isOtherHiveOrNestInRange(level, originHive);
+	}
+
+	public record FoundingSite(BlockPos nestPos, Direction facing) {
 	}
 
 	public static boolean isFarmlandOrCrop(BlockState state) {
 		if (state.is(Blocks.FARMLAND)
-				|| state.getBlock() instanceof FarmBlock
 				|| state.getBlock() instanceof CropBlock
 				|| state.getBlock() instanceof StemBlock
 				|| state.is(Blocks.SWEET_BERRY_BUSH)
@@ -148,31 +168,83 @@ public final class BusyBeeSupport {
 		return false;
 	}
 
+	public static boolean shouldAttemptFlyover(int tickCount, int entityId) {
+		return Math.floorMod(tickCount + entityId, FLYOVER_INTERVAL_TICKS) == 0;
+	}
+
+	/**
+	 * First surface below {@code beePos} that can take flyover pollen: a {@link BonemealableBlock}
+	 * or a crop. Uses a downward clip (no height cap). Crops sitting on farmland are preferred
+	 * over the farmland itself. Bare farmland is skipped.
+	 */
+	public static @Nullable BlockPos findFlyoverTarget(Level level, BlockPos beePos) {
+		return findFlyoverTarget(level, Vec3.atCenterOf(beePos));
+	}
+
+	public static @Nullable BlockPos findFlyoverTarget(Level level, Vec3 from) {
+		Vec3 to = new Vec3(from.x, level.getMinY(), from.z);
+		BlockHitResult hit = level.clip(new ClipContext(
+				from,
+				to,
+				ClipContext.Block.COLLIDER,
+				ClipContext.Fluid.NONE,
+				CollisionContext.empty()
+		));
+		if (hit.getType() == HitResult.Type.MISS) {
+			return null;
+		}
+		return resolveFlyoverTarget(level, hit.getBlockPos());
+	}
+
+	public static @Nullable BlockPos resolveFlyoverTarget(Level level, BlockPos hitPos) {
+		BlockPos above = hitPos.above();
+		BlockState aboveState = level.getBlockState(above);
+		if (isFlyoverPollenTarget(aboveState)) {
+			return above;
+		}
+		BlockState hitState = level.getBlockState(hitPos);
+		if (isBareFarmland(hitState)) {
+			return null;
+		}
+		if (isFlyoverPollenTarget(hitState)) {
+			return hitPos;
+		}
+		return null;
+	}
+
+	public static boolean isFlyoverPollenTarget(BlockState state) {
+		if (isBareFarmland(state)) {
+			return false;
+		}
+		return state.getBlock() instanceof BonemealableBlock || isFarmlandOrCrop(state);
+	}
+
+	public static boolean isBareFarmland(BlockState state) {
+		return state.is(Blocks.FARMLAND);
+	}
+
 	public static boolean tryFlyoverVegetation(ServerLevel level, Bee bee) {
 		if (!bee.hasNectar()) {
 			return false;
 		}
-		if (bee.tickCount % 40 != 0) {
+		if (!shouldAttemptFlyover(bee.tickCount, bee.getId())) {
 			return false;
 		}
-		if (bee.getRandom().nextInt(8) != 0) {
+		BlockPos target = findFlyoverTarget(level, bee.position());
+		if (target == null) {
 			return false;
 		}
-		BlockPos below = bee.blockPosition().below();
-		BlockState state = level.getBlockState(below);
-		if (isFarmlandOrCrop(state)) {
-			return false;
-		}
+		BlockState state = level.getBlockState(target);
 		if (!(state.getBlock() instanceof BonemealableBlock growable)) {
 			return false;
 		}
-		if (!growable.isValidBonemealTarget(level, below, state)) {
+		if (!growable.isValidBonemealTarget(level, target, state)) {
 			return false;
 		}
-		if (!growable.isBonemealSuccess(level, level.random, below, state)) {
+		if (!growable.isBonemealSuccess(level, bee.getRandom(), target, state)) {
 			return false;
 		}
-		growable.performBonemeal(level, level.random, below, state);
+		growable.performBonemeal(level, bee.getRandom(), target, state);
 		return true;
 	}
 
@@ -184,49 +256,76 @@ public final class BusyBeeSupport {
 		return horiz >= FOUNDING_MIN && horiz <= FOUNDING_MAX && dy <= HIVE_NECTAR_VERTICAL + 8;
 	}
 
-	public static boolean tryPlaceFoundingNest(ServerLevel level, BlockPos origin, BlockPos searchCenter, RandomSource random) {
-		for (int i = 0; i < 24; i++) {
-			int dx = randomIntBand(random);
-			int dz = randomIntBand(random);
-			int dy = random.nextInt(7) - 3;
-			BlockPos probe = searchCenter.offset(dx, dy, dz);
-			if (!isInFoundingBand(origin, probe) && !isInFoundingBand(origin, searchCenter)) {
-				continue;
-			}
-			if (tryAttachNestToTree(level, origin, probe)) {
-				return true;
+	public static boolean isWithinFoundingStay(BlockPos beePos, BlockPos target) {
+		int dx = Math.abs(beePos.getX() - target.getX());
+		int dy = Math.abs(beePos.getY() - target.getY());
+		int dz = Math.abs(beePos.getZ() - target.getZ());
+		return Math.max(dx, Math.max(dy, dz)) <= FOUNDING_STAY_RADIUS;
+	}
+
+	public static int nextFoundingDwell(int current, boolean inRadius) {
+		return inRadius ? current + 1 : 0;
+	}
+
+	public static boolean foundingDwellComplete(int dwellTicks) {
+		return dwellTicks >= FOUNDING_DWELL_TICKS;
+	}
+
+	public static @Nullable FoundingSite findFoundingSite(Level level, BlockPos origin, BlockPos near, RandomSource random) {
+		FoundingSite local = scanFoundingSite(level, origin, near, 8);
+		if (local != null) {
+			return local;
+		}
+		for (int i = 0; i < 32; i++) {
+			BlockPos probe = origin.offset(randomIntBand(random), random.nextInt(7) - 3, randomIntBand(random));
+			FoundingSite site = scanFoundingSite(level, origin, probe, 2);
+			if (site != null) {
+				return site;
 			}
 		}
-		return tryAttachNestToTree(level, origin, searchCenter);
+		return scanFoundingSite(level, origin, near, 2);
 	}
 
-	private static int randomIntBand(RandomSource random) {
-		int mag = FOUNDING_MIN + random.nextInt(FOUNDING_MAX - FOUNDING_MIN + 1);
-		return random.nextBoolean() ? mag : -mag;
-	}
-
-	public static boolean tryAttachNestToTree(ServerLevel level, BlockPos origin, BlockPos near) {
-		for (BlockPos pos : BlockPos.betweenClosed(near.offset(-2, -2, -2), near.offset(2, 2, 2))) {
+	private static @Nullable FoundingSite scanFoundingSite(Level level, BlockPos origin, BlockPos near, int radius) {
+		for (BlockPos pos : BlockPos.betweenClosed(near.offset(-radius, -radius, -radius), near.offset(radius, radius, radius))) {
 			BlockState state = level.getBlockState(pos);
 			if (!state.is(BlockTags.LOGS) && !state.is(BlockTags.LEAVES)) {
 				continue;
 			}
 			for (Direction dir : Direction.Plane.HORIZONTAL) {
 				BlockPos nestPos = pos.relative(dir);
-				if (!level.getBlockState(nestPos).isAir()) {
-					continue;
+				if (isValidFoundingSite(level, origin, nestPos, dir)) {
+					return new FoundingSite(nestPos.immutable(), dir);
 				}
-				if (!isInFoundingBand(origin, nestPos)) {
-					continue;
-				}
-				level.setBlockAndUpdate(
-						nestPos,
-						Blocks.BEE_NEST.defaultBlockState().setValue(net.minecraft.world.level.block.BeehiveBlock.FACING, dir)
-				);
-				return true;
 			}
 		}
-		return false;
+		return null;
+	}
+
+	public static boolean isValidFoundingSite(Level level, BlockPos origin, BlockPos nestPos, Direction facing) {
+		if (!level.getBlockState(nestPos).isAir()) {
+			return false;
+		}
+		if (!isInFoundingBand(origin, nestPos)) {
+			return false;
+		}
+		BlockState support = level.getBlockState(nestPos.relative(facing.getOpposite()));
+		return support.is(BlockTags.LOGS) || support.is(BlockTags.LEAVES);
+	}
+
+	public static boolean placeFoundingNest(ServerLevel level, FoundingSite site) {
+		if (!level.getBlockState(site.nestPos()).isAir()) {
+			return false;
+		}
+		return level.setBlockAndUpdate(
+				site.nestPos(),
+				Blocks.BEE_NEST.defaultBlockState().setValue(net.minecraft.world.level.block.BeehiveBlock.FACING, site.facing())
+		);
+	}
+
+	public static boolean tryAttachNestToTree(ServerLevel level, BlockPos origin, BlockPos near) {
+		FoundingSite site = scanFoundingSite(level, origin, near, 2);
+		return site != null && placeFoundingNest(level, site);
 	}
 
 	public static BlockPos outwardWanderTarget(BlockPos origin, RandomSource random) {
@@ -234,5 +333,63 @@ public final class BusyBeeSupport {
 		int dx = random.nextBoolean() ? mag : -mag;
 		int dz = random.nextBoolean() ? mag : -mag;
 		return origin.offset(dx, 0, dz);
+	}
+
+	public static void tickFounding(ServerLevel level, Bee bee, BusyBeeData data) {
+		if (!data.busyBees$isFounding() || data.busyBees$originHive() == null) {
+			return;
+		}
+		if (bee.isBaby()) {
+			data.busyBees$clearFounding();
+			return;
+		}
+		BlockPos origin = data.busyBees$originHive();
+		BlockPos target = data.busyBees$foundingTarget();
+		Direction facing = data.busyBees$foundingFacing();
+		if (target == null || facing == null || !isValidFoundingSite(level, origin, target, facing)) {
+			FoundingSite site = findFoundingSite(level, origin, bee.blockPosition(), bee.getRandom());
+			if (site == null) {
+				data.busyBees$setFoundingTarget(null);
+				data.busyBees$setFoundingFacing(null);
+				data.busyBees$setFoundingDwell(0);
+				if (bee.tickCount % 20 == 0) {
+					BlockPos wander = outwardWanderTarget(origin, bee.getRandom());
+					bee.getNavigation().moveTo(wander.getX() + 0.5, bee.getY(), wander.getZ() + 0.5, 1.0);
+				}
+				return;
+			}
+			data.busyBees$setFoundingTarget(site.nestPos());
+			data.busyBees$setFoundingFacing(site.facing());
+			data.busyBees$setFoundingDwell(0);
+			target = site.nestPos();
+			facing = site.facing();
+		}
+		boolean inRadius = isWithinFoundingStay(bee.blockPosition(), target);
+		int dwell = nextFoundingDwell(data.busyBees$foundingDwell(), inRadius);
+		data.busyBees$setFoundingDwell(dwell);
+		if (!inRadius || bee.tickCount % 10 == 0) {
+			bee.getNavigation().moveTo(target.getX() + 0.5, target.getY() + 0.5, target.getZ() + 0.5, 1.0);
+		}
+		if (!foundingDwellComplete(dwell)) {
+			return;
+		}
+		FoundingSite site = new FoundingSite(target, facing);
+		if (!placeFoundingNest(level, site)) {
+			data.busyBees$setFoundingTarget(null);
+			data.busyBees$setFoundingFacing(null);
+			data.busyBees$setFoundingDwell(0);
+			return;
+		}
+		bee.setHivePos(target);
+		BeehiveBlockEntity nest = level.getBlockEntity(target, net.minecraft.world.level.block.entity.BlockEntityType.BEEHIVE).orElse(null);
+		data.busyBees$clearFounding();
+		if (nest != null) {
+			nest.addOccupant(bee);
+		}
+	}
+
+	private static int randomIntBand(RandomSource random) {
+		int mag = FOUNDING_MIN + random.nextInt(FOUNDING_MAX - FOUNDING_MIN + 1);
+		return random.nextBoolean() ? mag : -mag;
 	}
 }
