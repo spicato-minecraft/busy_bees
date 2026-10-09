@@ -39,6 +39,13 @@ public abstract class BeeDataMixin implements BusyBeeData {
 	@Unique
 	private int busyBees$foundingDwell;
 
+	@Unique
+	private boolean busyBees$relocating;
+
+	@Unique
+	@Nullable
+	private BlockPos busyBees$relocateTarget;
+
 	@Override
 	public boolean busyBees$hasPitcherPollen() {
 		return this.busyBees$pitcherPollen;
@@ -101,6 +108,8 @@ public abstract class BeeDataMixin implements BusyBeeData {
 
 	@Override
 	public void busyBees$beginFounding(BlockPos origin) {
+		this.busyBees$relocating = false;
+		this.busyBees$relocateTarget = null;
 		this.busyBees$founding = true;
 		this.busyBees$originHive = origin;
 		this.busyBees$foundingTarget = null;
@@ -115,6 +124,36 @@ public abstract class BeeDataMixin implements BusyBeeData {
 		this.busyBees$foundingTarget = null;
 		this.busyBees$foundingFacing = null;
 		this.busyBees$foundingDwell = 0;
+	}
+
+	@Override
+	public boolean busyBees$isRelocating() {
+		return this.busyBees$relocating;
+	}
+
+	@Override
+	public @Nullable BlockPos busyBees$relocateTarget() {
+		return this.busyBees$relocateTarget;
+	}
+
+	@Override
+	public void busyBees$beginRelocate(BlockPos origin, BlockPos dest) {
+		this.busyBees$founding = false;
+		this.busyBees$foundingTarget = null;
+		this.busyBees$foundingFacing = null;
+		this.busyBees$foundingDwell = 0;
+		this.busyBees$relocating = true;
+		this.busyBees$originHive = origin;
+		this.busyBees$relocateTarget = dest;
+	}
+
+	@Override
+	public void busyBees$clearRelocate() {
+		this.busyBees$relocating = false;
+		this.busyBees$relocateTarget = null;
+		if (!this.busyBees$founding) {
+			this.busyBees$originHive = null;
+		}
 	}
 
 	@Inject(method = "setHasNectar", at = @At("TAIL"))
@@ -132,6 +171,8 @@ public abstract class BeeDataMixin implements BusyBeeData {
 		output.storeNullable("busy_bees.target", BlockPos.CODEC, this.busyBees$foundingTarget);
 		output.storeNullable("busy_bees.facing", Direction.CODEC, this.busyBees$foundingFacing);
 		output.putInt("busy_bees.dwell", this.busyBees$foundingDwell);
+		output.putBoolean("busy_bees.relocating", this.busyBees$relocating);
+		output.storeNullable("busy_bees.relocate", BlockPos.CODEC, this.busyBees$relocateTarget);
 	}
 
 	@Inject(method = "readAdditionalSaveData", at = @At("TAIL"))
@@ -142,6 +183,8 @@ public abstract class BeeDataMixin implements BusyBeeData {
 		this.busyBees$foundingTarget = input.read("busy_bees.target", BlockPos.CODEC).orElse(null);
 		this.busyBees$foundingFacing = input.read("busy_bees.facing", Direction.CODEC).orElse(null);
 		this.busyBees$foundingDwell = input.getIntOr("busy_bees.dwell", 0);
+		this.busyBees$relocating = input.getBooleanOr("busy_bees.relocating", false);
+		this.busyBees$relocateTarget = input.read("busy_bees.relocate", BlockPos.CODEC).orElse(null);
 	}
 
 	@Inject(method = "tick", at = @At("TAIL"))
@@ -150,7 +193,10 @@ public abstract class BeeDataMixin implements BusyBeeData {
 		if (!(bee.level() instanceof ServerLevel serverLevel)) {
 			return;
 		}
-		BusyBeeSupport.tryFlyoverVegetation(serverLevel, bee);
+		if (!this.busyBees$isFounding() && !this.busyBees$isRelocating()) {
+			BusyBeeSupport.tryFlyoverVegetation(serverLevel, bee);
+		}
+		BusyBeeSupport.tickRelocate(serverLevel, bee, this);
 		BusyBeeSupport.tickFounding(serverLevel, bee, this);
 	}
 }

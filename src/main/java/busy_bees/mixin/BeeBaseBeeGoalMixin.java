@@ -18,7 +18,7 @@ public abstract class BeeBaseBeeGoalMixin {
 
 	@Inject(method = "canUse", at = @At("HEAD"), cancellable = true)
 	private void busyBees$holdFoundingSite(CallbackInfoReturnable<Boolean> ci) {
-		if (this.this$0 instanceof BusyBeeData data && data.busyBees$isFounding()) {
+		if (this.this$0 instanceof BusyBeeData data && (data.busyBees$isFounding() || data.busyBees$isRelocating())) {
 			ci.setReturnValue(false);
 		}
 	}

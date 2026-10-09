@@ -127,6 +127,107 @@ public class PitcherFlyoverFoundingGameTest {
 	}
 
 	@GameTest(maxTicks = 40)
+	public void hiveWithForagerStillCountsAsRegisteredFull(GameTestHelper context) {
+		BlockPos originRel = new BlockPos(2, 1, 2);
+		BlockPos destRel = new BlockPos(2, 1, 5);
+		context.setBlock(originRel, Blocks.BEEHIVE);
+		context.setBlock(destRel, Blocks.BEE_NEST);
+		BeehiveBlockEntity dest = context.getBlockEntity(destRel, BeehiveBlockEntity.class);
+		context.assertTrue(dest != null, "destination nest should exist");
+		dest.storeBee(BeehiveBlockEntity.Occupant.create(0));
+		dest.storeBee(BeehiveBlockEntity.Occupant.create(0));
+		Bee forager = context.spawn(EntityType.BEE, destRel.getX(), destRel.getY() + 1, destRel.getZ(), EntitySpawnReason.NATURAL);
+		forager.setHivePos(context.absolutePos(destRel));
+		Bee overflow = context.spawn(EntityType.BEE, originRel.getX(), originRel.getY() + 1, originRel.getZ(), EntitySpawnReason.NATURAL);
+		overflow.setAge(0);
+		BlockPos destAbs = context.absolutePos(destRel);
+		context.assertFalse(
+				BusyBeeSupport.hasRegisteredVacancy(context.getLevel(), destAbs, overflow),
+				"two stored bees plus a forager assigned to the nest should fill it"
+		);
+		context.assertTrue(
+				BusyBeeSupport.findHiveWithRegisteredVacancy(
+						context.getLevel(),
+						context.absolutePos(originRel),
+						overflow,
+						3,
+						2
+				) == null,
+				"overflow must not steal a hive whose three bees are merely out collecting"
+		);
+		context.succeed();
+	}
+
+	@GameTest(maxTicks = 80)
+	public void overflowFliesStraightToARegisteredVacancy(GameTestHelper context) {
+		BlockPos originRel = new BlockPos(2, 1, 2);
+		BlockPos destRel = new BlockPos(2, 1, 5);
+		context.setBlock(originRel, Blocks.BEEHIVE);
+		context.setBlock(destRel, Blocks.BEE_NEST);
+		BeehiveBlockEntity origin = context.getBlockEntity(originRel, BeehiveBlockEntity.class);
+		BeehiveBlockEntity dest = context.getBlockEntity(destRel, BeehiveBlockEntity.class);
+		context.assertTrue(origin != null && dest != null, "both hives should exist");
+		origin.storeBee(BeehiveBlockEntity.Occupant.create(0));
+		origin.storeBee(BeehiveBlockEntity.Occupant.create(0));
+		origin.storeBee(BeehiveBlockEntity.Occupant.create(0));
+		Bee overflow = context.spawn(EntityType.BEE, originRel.getX(), originRel.getY() + 1, originRel.getZ(), EntitySpawnReason.NATURAL);
+		overflow.setAge(0);
+		overflow.setHivePos(context.absolutePos(originRel));
+		BlockPos destAbs = context.absolutePos(destRel);
+		BlockPos found = BusyBeeSupport.findHiveWithRegisteredVacancy(
+				context.getLevel(),
+				context.absolutePos(originRel),
+				overflow,
+				4,
+				2
+		);
+		context.assertTrue(destAbs.equals(found), "empty nest should be the relocate target, found " + found);
+		BusyBeeData data = (BusyBeeData) overflow;
+		data.busyBees$beginRelocate(context.absolutePos(originRel), destAbs);
+		overflow.setHivePos(destAbs);
+		context.assertTrue(data.busyBees$isRelocating(), "overflow bee should relocate, not wander");
+		context.assertFalse(data.busyBees$isFounding(), "a vacancy must skip founding");
+		BusyBeeSupport.tickRelocate(context.getLevel(), overflow, data);
+		context.assertTrue(
+				overflow.getNavigation().isInProgress() || overflow.blockPosition().closerThan(destAbs, 2),
+				"relocating bee should path straight at the vacant hive"
+		);
+		context.succeed();
+	}
+
+	@GameTest(maxTicks = 40)
+	public void overflowFoundsWhenNearbyHivesAreRegisteredFull(GameTestHelper context) {
+		BlockPos originRel = new BlockPos(2, 1, 2);
+		BlockPos destRel = new BlockPos(2, 1, 5);
+		context.setBlock(originRel, Blocks.BEEHIVE);
+		context.setBlock(destRel, Blocks.BEE_NEST);
+		BeehiveBlockEntity origin = context.getBlockEntity(originRel, BeehiveBlockEntity.class);
+		BeehiveBlockEntity dest = context.getBlockEntity(destRel, BeehiveBlockEntity.class);
+		context.assertTrue(origin != null && dest != null, "both hives should exist");
+		origin.storeBee(BeehiveBlockEntity.Occupant.create(0));
+		origin.storeBee(BeehiveBlockEntity.Occupant.create(0));
+		origin.storeBee(BeehiveBlockEntity.Occupant.create(0));
+		dest.storeBee(BeehiveBlockEntity.Occupant.create(0));
+		dest.storeBee(BeehiveBlockEntity.Occupant.create(0));
+		dest.storeBee(BeehiveBlockEntity.Occupant.create(0));
+		Bee overflow = context.spawn(EntityType.BEE, originRel.getX(), originRel.getY() + 1, originRel.getZ(), EntitySpawnReason.NATURAL);
+		overflow.setAge(0);
+		context.assertTrue(
+				BusyBeeSupport.canFoundNest(overflow)
+						&& BusyBeeSupport.isHiveFull(origin)
+						&& BusyBeeSupport.findHiveWithRegisteredVacancy(
+								context.getLevel(),
+								context.absolutePos(originRel),
+								overflow,
+								3,
+								2
+						) == null,
+				"founding is the fallback when every nearby hive already has three registered bees"
+		);
+		context.succeed();
+	}
+
+	@GameTest(maxTicks = 40)
 	public void pitcherPlantIsBonusSource(GameTestHelper context) {
 		context.setBlock(new BlockPos(1, 1, 1), Blocks.PITCHER_PLANT);
 		context.assertTrue(

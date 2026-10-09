@@ -36,4 +36,13 @@ public interface BusyBeeData {
 	void busyBees$beginFounding(BlockPos origin);
 
 	void busyBees$clearFounding();
+
+	boolean busyBees$isRelocating();
+
+	@Nullable
+	BlockPos busyBees$relocateTarget();
+
+	void busyBees$beginRelocate(BlockPos origin, BlockPos dest);
+
+	void busyBees$clearRelocate();
 }

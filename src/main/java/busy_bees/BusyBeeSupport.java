@@ -15,6 +15,7 @@ import net.minecraft.world.level.block.StemBlock;
 import net.minecraft.world.level.block.TorchflowerCropBlock;
 import net.minecraft.world.level.block.entity.BeehiveBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -27,6 +28,9 @@ public final class BusyBeeSupport {
 	public static final int HIVE_NECTAR_VERTICAL = 8;
 	public static final int FOUNDING_MIN = 22;
 	public static final int FOUNDING_MAX = 40;
+	/** Larger than nectar/founding-min (22) so overflow bees can still see nearby hives. */
+	public static final int HIVE_RELOCATE_RANGE = 48;
+	public static final int HIVE_RELOCATE_VERTICAL = HIVE_NECTAR_VERTICAL + 8;
 	/** Bee must stay this close to the chosen nest air block. */
 	public static final int FOUNDING_STAY_RADIUS = 2;
 	/** ~30s at 20 tps, counted only while inside {@link #FOUNDING_STAY_RADIUS}. */
@@ -141,6 +145,56 @@ public final class BusyBeeSupport {
 		return hive != null && hive.isFull();
 	}
 
+	/**
+	 * Hive block entities only store bees that are currently inside. Regular members that are out
+	 * collecting still point at the hive with {@link Bee#getHivePos()}. Registered occupancy is
+	 * stored occupants plus those loaded members, so a hive is not treated as open just because a
+	 * resident is on a pollen run.
+	 */
+	public static boolean hasRegisteredVacancy(int storedCount, int registeredOutsideCount) {
+		return storedCount + registeredOutsideCount < BeehiveBlockEntity.MAX_OCCUPANTS;
+	}
+
+	public static int countRegisteredOutside(Level level, BlockPos hivePos, @Nullable Bee exclude) {
+		AABB box = new AABB(hivePos).inflate(HIVE_RELOCATE_RANGE, HIVE_RELOCATE_VERTICAL, HIVE_RELOCATE_RANGE);
+		int count = 0;
+		for (Bee other : level.getEntitiesOfClass(Bee.class, box)) {
+			if (other != exclude && hivePos.equals(other.getHivePos())) {
+				count++;
+			}
+		}
+		return count;
+	}
+
+	public static boolean hasRegisteredVacancy(Level level, BlockPos hivePos, @Nullable Bee exclude) {
+		BeehiveBlockEntity hive = level.getBlockEntity(hivePos, net.minecraft.world.level.block.entity.BlockEntityType.BEEHIVE).orElse(null);
+		if (hive == null) {
+			return false;
+		}
+		return hasRegisteredVacancy(hive.getOccupantCount(), countRegisteredOutside(level, hivePos, exclude));
+	}
+
+	public static @Nullable BlockPos findHiveWithRegisteredVacancy(Level level, BlockPos originHive, Bee bee) {
+		return findHiveWithRegisteredVacancy(level, originHive, bee, HIVE_RELOCATE_RANGE, HIVE_RELOCATE_VERTICAL);
+	}
+
+	public static @Nullable BlockPos findHiveWithRegisteredVacancy(
+			Level level,
+			BlockPos originHive,
+			Bee bee,
+			int horizontalRange,
+			int verticalRange
+	) {
+		return BlockPos.findClosestMatch(
+				originHive,
+				horizontalRange,
+				verticalRange,
+				pos -> !pos.equals(originHive)
+						&& isHiveOrNest(level.getBlockState(pos))
+						&& hasRegisteredVacancy(level, pos, bee)
+		).orElse(null);
+	}
+
 	public static boolean canFoundNestForAge(int age) {
 		return age >= 0;
 	}
@@ -150,7 +204,7 @@ public final class BusyBeeSupport {
 	}
 
 	public static boolean shouldStartFounding(Level level, BlockPos originHive, BeehiveBlockEntity hive, Bee bee) {
-		return canFoundNest(bee) && isHiveFull(hive) && !isOtherHiveOrNestInRange(level, originHive);
+		return canFoundNest(bee) && isHiveFull(hive) && findHiveWithRegisteredVacancy(level, originHive, bee) == null;
 	}
 
 	public record FoundingSite(BlockPos nestPos, Direction facing) {
@@ -333,6 +387,45 @@ public final class BusyBeeSupport {
 		int dx = random.nextBoolean() ? mag : -mag;
 		int dz = random.nextBoolean() ? mag : -mag;
 		return origin.offset(dx, 0, dz);
+	}
+
+	public static void tickRelocate(ServerLevel level, Bee bee, BusyBeeData data) {
+		if (!data.busyBees$isRelocating()) {
+			return;
+		}
+		BlockPos dest = data.busyBees$relocateTarget();
+		if (dest == null || !isHiveOrNest(level.getBlockState(dest))) {
+			retryRelocateOrFound(level, bee, data, data.busyBees$originHive());
+			return;
+		}
+		if (!bee.blockPosition().closerThan(dest, 2) || bee.tickCount % 10 == 0) {
+			bee.getNavigation().moveTo(dest.getX() + 0.5, dest.getY() + 0.5, dest.getZ() + 0.5, 1.0);
+		}
+		if (!bee.blockPosition().closerThan(dest, 2)) {
+			return;
+		}
+		BeehiveBlockEntity hive = level.getBlockEntity(dest, net.minecraft.world.level.block.entity.BlockEntityType.BEEHIVE).orElse(null);
+		if (hive != null && !hive.isFull()) {
+			data.busyBees$clearRelocate();
+			hive.addOccupant(bee);
+			return;
+		}
+		bee.setHivePos(null);
+		retryRelocateOrFound(level, bee, data, dest);
+	}
+
+	private static void retryRelocateOrFound(ServerLevel level, Bee bee, BusyBeeData data, @Nullable BlockPos searchOrigin) {
+		BlockPos origin = searchOrigin != null ? searchOrigin : bee.blockPosition();
+		BlockPos next = findHiveWithRegisteredVacancy(level, origin, bee);
+		if (next != null) {
+			data.busyBees$beginRelocate(origin, next);
+			bee.setHivePos(next);
+			return;
+		}
+		data.busyBees$clearRelocate();
+		if (canFoundNest(bee)) {
+			data.busyBees$beginFounding(origin);
+		}
 	}
 
 	public static void tickFounding(ServerLevel level, Bee bee, BusyBeeData data) {

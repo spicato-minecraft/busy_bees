@@ -12,6 +12,8 @@ import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Bee.class)
 public abstract class BeeStayInHiveMixin {
@@ -37,5 +39,11 @@ public abstract class BeeStayInHiveMixin {
 		Bee bee = (Bee) (Object) this;
 		boolean vanillaStay = Boolean.TRUE.equals(vanilla);
 		return BusyBeeSupport.beesStayInHiveForBee(bee.level(), this.hivePos, bee.blockPosition(), vanillaStay);
+	}
+
+	@Inject(method = "doesHiveHaveSpace", at = @At("HEAD"), cancellable = true)
+	private void busyBees$registeredVacancy(BlockPos hivePos, CallbackInfoReturnable<Boolean> cir) {
+		Bee bee = (Bee) (Object) this;
+		cir.setReturnValue(BusyBeeSupport.hasRegisteredVacancy(bee.level(), hivePos, bee));
 	}
 }

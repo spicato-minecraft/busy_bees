@@ -25,8 +25,17 @@ public abstract class BeeEnterHiveGoalMixin {
 		BlockPos origin = bee.getHivePos();
 		if (origin != null && newHivePos == null) {
 			BeehiveBlockEntity hive = bee.level().getBlockEntity(origin, net.minecraft.world.level.block.entity.BlockEntityType.BEEHIVE).orElse(null);
-			if (hive != null && BusyBeeSupport.shouldStartFounding(bee.level(), origin, hive, bee)) {
-				((BusyBeeData) bee).busyBees$beginFounding(origin);
+			if (hive != null && BusyBeeSupport.isHiveFull(hive)) {
+				BusyBeeData data = (BusyBeeData) bee;
+				BlockPos dest = BusyBeeSupport.findHiveWithRegisteredVacancy(bee.level(), origin, bee);
+				if (dest != null) {
+					data.busyBees$beginRelocate(origin, dest);
+					original.call(bee, dest);
+					return;
+				}
+				if (BusyBeeSupport.canFoundNest(bee)) {
+					data.busyBees$beginFounding(origin);
+				}
 			}
 		}
 		original.call(bee, newHivePos);

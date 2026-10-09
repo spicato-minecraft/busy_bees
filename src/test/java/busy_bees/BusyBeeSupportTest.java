@@ -108,4 +108,21 @@ class BusyBeeSupportTest {
 		assertTrue(BusyBeeSupport.isHiveOrNest(Blocks.BEE_NEST.defaultBlockState()));
 		assertFalse(BusyBeeSupport.isHiveOrNest(Blocks.OAK_LOG.defaultBlockState()));
 	}
+
+	@Test
+	void registeredOccupancyCountsBeesThatAreOutCollecting() {
+		assertTrue(BusyBeeSupport.hasRegisteredVacancy(0, 0));
+		assertTrue(BusyBeeSupport.hasRegisteredVacancy(2, 0));
+		assertFalse(BusyBeeSupport.hasRegisteredVacancy(2, 1));
+		assertFalse(BusyBeeSupport.hasRegisteredVacancy(3, 0));
+		assertFalse(BusyBeeSupport.hasRegisteredVacancy(1, 2));
+		assertTrue(BusyBeeSupport.hasRegisteredVacancy(1, 1));
+	}
+
+	@Test
+	void overflowSearchIsWiderThanTheFoundingInnerBand() {
+		assertTrue(BusyBeeSupport.HIVE_RELOCATE_RANGE > BusyBeeSupport.HIVE_NECTAR_RANGE);
+		assertTrue(BusyBeeSupport.HIVE_RELOCATE_RANGE > BusyBeeSupport.FOUNDING_MIN);
+		assertTrue(BusyBeeSupport.HIVE_RELOCATE_RANGE >= BusyBeeSupport.FOUNDING_MAX);
+	}
 }

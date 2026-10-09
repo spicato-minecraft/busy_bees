@@ -68,8 +68,8 @@ See [minecraft-mods/docs/README.md](../docs/README.md) for org-wide release conv
 
 | Layer      | Purpose |
 |------------|---------|
-| Unit tests | Qualifying torchflowers, pitcher plant vs crop, founding band, adult-only founding age, flyover pollen targets, in-hive breeding |
-| GameTests  | Night stay/target, founding skip/place/dwell-enter, pitcher/flyover predicates |
+| Unit tests | Qualifying torchflowers, pitcher plant vs crop, founding band, adult-only founding age, flyover pollen targets, in-hive breeding, registered hive occupancy |
+| GameTests  | Night stay/target, founding skip/place/dwell-enter, overflow relocate vs founding, pitcher/flyover predicates |
 
 Behavior tests are tracked in [Notion Tasks](https://app.notion.com/p/3b716e8d4da380adbd93cf0a73b39d5c). Manual UAT items live in the Mod Catalog.
 
@@ -81,7 +81,7 @@ Vanilla 26.1 keeps bees in hives via `EnvironmentAttributes.BEES_STAY_IN_HIVE`. 
 2. Restricts night nectar targeting to those torchflowers.
 3. Marks nectar from a mature two-block pitcher plant and shortens crop-grow delay by 1.3×.
 4. About every 4 seconds (staggered per bee), while carrying pollen, bone-meals the first bonemealable block or crop directly below the bee (no height cap). Bare farmland is skipped; a crop on farmland is used instead.
-5. When a hive is full and no other hive/nest is in the founding band, a surplus **adult** picks a log/leaf nest site 22–40 out, flies there, and must stay within 2 blocks of that air block for ~30s. Leaving the spot resets the dwell. Then one nest appears and the bee enters it. Babies never found.
+5. When a hive is full, the surplus bee first looks (out to 48 blocks, wider than the 22-block hive range) for another hive/nest that has a **registered** vacancy: stored occupants plus loaded bees whose hive is that block, max 3. A hive is not open just because a resident is out collecting pollen. If one is found, the bee claims that hive immediately and flies straight to it. If none, a surplus **adult** founds: picks a log/leaf nest site 22–40 out, flies there, and must stay within 2 blocks of that air block for ~30s. Leaving the spot resets the dwell. Then one nest appears and the bee enters it. Babies never found.
 6. Using a bee-food flower on a hive or nest feeds stored bees with vanilla love rules: one flower loves one ready adult (`InLove` on that occupant’s NBT). That adult cannot be fed again until love ends and `Age` is 0. A second flower on a second ready adult breeds them (both get the 6000-tick cooldown). Hearts play only for love or birth. If no adult can fall in love, a stored baby can still be age-up fed (happy-villager particles). The baby stays in the hive if there is room, otherwise it appears in front of the hive.
 
 Bees do not self-breed. Population still comes from player-fed flowers, including while bees are inside the hive.
