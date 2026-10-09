@@ -24,7 +24,7 @@ public abstract class BeeEnterHiveGoalMixin {
 	private void busyBees$overflowFounding(Bee bee, BlockPos newHivePos, Operation<Void> original) {
 		BlockPos origin = bee.getHivePos();
 		if (origin != null && newHivePos == null) {
-			BeehiveBlockEntity hive = bee.level().getBlockEntity(origin, net.minecraft.world.level.block.entity.BlockEntityType.BEEHIVE).orElse(null);
+			BeehiveBlockEntity hive = bee.level().getBlockEntity(origin, net.minecraft.world.level.block.entity.BlockEntityTypes.BEEHIVE).orElse(null);
 			if (hive != null && BusyBeeSupport.isHiveFull(hive)) {
 				BusyBeeData data = (BusyBeeData) bee;
 				BlockPos dest = BusyBeeSupport.findHiveWithRegisteredVacancy(bee.level(), origin, bee);

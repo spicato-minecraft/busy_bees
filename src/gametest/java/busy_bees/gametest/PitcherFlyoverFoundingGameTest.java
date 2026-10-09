@@ -7,7 +7,7 @@ import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.EntitySpawnReason;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.animal.bee.Bee;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -16,7 +16,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.entity.BeehiveBlockEntity;
-import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.entity.BlockEntityTypes;
 
 public class PitcherFlyoverFoundingGameTest {
 
@@ -71,7 +71,7 @@ public class PitcherFlyoverFoundingGameTest {
 				context.getLevel().getRandom()
 		);
 		context.assertTrue(site != null, "log in band should yield a nest site");
-		Bee bee = context.spawn(EntityType.BEE, 1, 2, 1, EntitySpawnReason.NATURAL);
+		Bee bee = context.spawn(EntityTypes.BEE, 1, 2, 1, EntitySpawnReason.NATURAL);
 		bee.setAge(0);
 		bee.setPos(site.nestPos().getX() + 0.5, site.nestPos().getY(), site.nestPos().getZ() + 0.5);
 		BusyBeeData data = (BusyBeeData) bee;
@@ -84,7 +84,7 @@ public class PitcherFlyoverFoundingGameTest {
 				context.getLevel().getBlockState(site.nestPos()).is(Blocks.BEE_NEST),
 				"nest should appear after the bee dwells at the site"
 		);
-		BeehiveBlockEntity nest = context.getLevel().getBlockEntity(site.nestPos(), BlockEntityType.BEEHIVE).orElse(null);
+		BeehiveBlockEntity nest = context.getLevel().getBlockEntity(site.nestPos(), BlockEntityTypes.BEEHIVE).orElse(null);
 		context.assertTrue(nest != null && nest.getOccupantCount() == 1, "founding bee should enter the new nest");
 		context.assertTrue(bee.isRemoved(), "bee entity should occupy the nest");
 		context.succeed();
@@ -136,9 +136,9 @@ public class PitcherFlyoverFoundingGameTest {
 		context.assertTrue(dest != null, "destination nest should exist");
 		dest.storeBee(BeehiveBlockEntity.Occupant.create(0));
 		dest.storeBee(BeehiveBlockEntity.Occupant.create(0));
-		Bee forager = context.spawn(EntityType.BEE, destRel.getX(), destRel.getY() + 1, destRel.getZ(), EntitySpawnReason.NATURAL);
+		Bee forager = context.spawn(EntityTypes.BEE, destRel.getX(), destRel.getY() + 1, destRel.getZ(), EntitySpawnReason.NATURAL);
 		forager.setHivePos(context.absolutePos(destRel));
-		Bee overflow = context.spawn(EntityType.BEE, originRel.getX(), originRel.getY() + 1, originRel.getZ(), EntitySpawnReason.NATURAL);
+		Bee overflow = context.spawn(EntityTypes.BEE, originRel.getX(), originRel.getY() + 1, originRel.getZ(), EntitySpawnReason.NATURAL);
 		overflow.setAge(0);
 		BlockPos destAbs = context.absolutePos(destRel);
 		context.assertFalse(
@@ -170,7 +170,7 @@ public class PitcherFlyoverFoundingGameTest {
 		origin.storeBee(BeehiveBlockEntity.Occupant.create(0));
 		origin.storeBee(BeehiveBlockEntity.Occupant.create(0));
 		origin.storeBee(BeehiveBlockEntity.Occupant.create(0));
-		Bee overflow = context.spawn(EntityType.BEE, originRel.getX(), originRel.getY() + 1, originRel.getZ(), EntitySpawnReason.NATURAL);
+		Bee overflow = context.spawn(EntityTypes.BEE, originRel.getX(), originRel.getY() + 1, originRel.getZ(), EntitySpawnReason.NATURAL);
 		overflow.setAge(0);
 		overflow.setHivePos(context.absolutePos(originRel));
 		BlockPos destAbs = context.absolutePos(destRel);
@@ -210,7 +210,7 @@ public class PitcherFlyoverFoundingGameTest {
 		dest.storeBee(BeehiveBlockEntity.Occupant.create(0));
 		dest.storeBee(BeehiveBlockEntity.Occupant.create(0));
 		dest.storeBee(BeehiveBlockEntity.Occupant.create(0));
-		Bee overflow = context.spawn(EntityType.BEE, originRel.getX(), originRel.getY() + 1, originRel.getZ(), EntitySpawnReason.NATURAL);
+		Bee overflow = context.spawn(EntityTypes.BEE, originRel.getX(), originRel.getY() + 1, originRel.getZ(), EntitySpawnReason.NATURAL);
 		overflow.setAge(0);
 		context.assertTrue(
 				BusyBeeSupport.canFoundNest(overflow)
@@ -271,7 +271,7 @@ public class PitcherFlyoverFoundingGameTest {
 		context.setBlock(hiveRel, Blocks.BEEHIVE);
 		BeehiveBlockEntity hive = context.getBlockEntity(hiveRel, BeehiveBlockEntity.class);
 		context.assertTrue(hive != null, "hive block entity should exist");
-		Bee adult = context.spawn(EntityType.BEE, 1, 2, 1, EntitySpawnReason.NATURAL);
+		Bee adult = context.spawn(EntityTypes.BEE, 1, 2, 1, EntitySpawnReason.NATURAL);
 		adult.setAge(0);
 		hive.addOccupant(adult);
 		context.assertTrue(hive.getOccupantCount() == 1, "entered bee should occupy the hive");

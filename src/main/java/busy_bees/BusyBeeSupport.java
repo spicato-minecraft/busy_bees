@@ -167,7 +167,7 @@ public final class BusyBeeSupport {
 	}
 
 	public static boolean hasRegisteredVacancy(Level level, BlockPos hivePos, @Nullable Bee exclude) {
-		BeehiveBlockEntity hive = level.getBlockEntity(hivePos, net.minecraft.world.level.block.entity.BlockEntityType.BEEHIVE).orElse(null);
+		BeehiveBlockEntity hive = level.getBlockEntity(hivePos, net.minecraft.world.level.block.entity.BlockEntityTypes.BEEHIVE).orElse(null);
 		if (hive == null) {
 			return false;
 		}
@@ -404,7 +404,7 @@ public final class BusyBeeSupport {
 		if (!bee.blockPosition().closerThan(dest, 2)) {
 			return;
 		}
-		BeehiveBlockEntity hive = level.getBlockEntity(dest, net.minecraft.world.level.block.entity.BlockEntityType.BEEHIVE).orElse(null);
+		BeehiveBlockEntity hive = level.getBlockEntity(dest, net.minecraft.world.level.block.entity.BlockEntityTypes.BEEHIVE).orElse(null);
 		if (hive != null && !hive.isFull()) {
 			data.busyBees$clearRelocate();
 			hive.addOccupant(bee);
@@ -474,7 +474,7 @@ public final class BusyBeeSupport {
 			return;
 		}
 		bee.setHivePos(target);
-		BeehiveBlockEntity nest = level.getBlockEntity(target, net.minecraft.world.level.block.entity.BlockEntityType.BEEHIVE).orElse(null);
+		BeehiveBlockEntity nest = level.getBlockEntity(target, net.minecraft.world.level.block.entity.BlockEntityTypes.BEEHIVE).orElse(null);
 		data.busyBees$clearFounding();
 		if (nest != null) {
 			nest.addOccupant(bee);

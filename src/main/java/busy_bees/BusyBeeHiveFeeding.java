@@ -12,7 +12,7 @@ import net.minecraft.stats.Stats;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.AgeableMob;
 import net.minecraft.world.entity.EntitySpawnReason;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.animal.bee.Bee;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -215,7 +215,7 @@ public final class BusyBeeHiveFeeding {
 	public static Occupant babyOccupant() {
 		CompoundTag tag = new CompoundTag();
 		tag.putInt("Age", BABY_AGE);
-		return new Occupant(TypedEntityData.of(EntityType.BEE, tag), 0, 600);
+		return new Occupant(TypedEntityData.of(EntityTypes.BEE, tag), 0, 600);
 	}
 
 	private static void spawnBabyOutside(ServerLevel level, BlockPos hivePos, BlockState state, Occupant occupant) {
@@ -223,7 +223,7 @@ public final class BusyBeeHiveFeeding {
 		if (state.hasProperty(BeehiveBlock.FACING)) {
 			spawnPos = hivePos.relative(state.getValue(BeehiveBlock.FACING));
 		}
-		Bee baby = EntityType.BEE.create(level, EntitySpawnReason.BREEDING);
+		Bee baby = EntityTypes.BEE.create(level, EntitySpawnReason.BREEDING);
 		if (baby == null) {
 			return;
 		}
