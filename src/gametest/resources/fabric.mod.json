@@ -9,7 +9,12 @@
 			"busy_bees.gametest.ModLoadsGameTest",
 			"busy_bees.gametest.NightHiveGameTest",
 			"busy_bees.gametest.NightTargetGameTest",
-			"busy_bees.gametest.PitcherFlyoverFoundingGameTest"
+			"busy_bees.gametest.PitcherFlyoverFoundingGameTest",
+			"busy_bees.gametest.ServerMixinApplySweep",
+			"busy_bees.gametest.FlyoverBoneMealsCrop",
+			"busy_bees.gametest.PitcherPollinateSetsFlag",
+			"busy_bees.gametest.FullHiveSpawnsBabyInFront",
+			"busy_bees.gametest.BeeNbtKeepsPitcherFlag"
 		]
 	},
 	"depends": {
