@@ -52,7 +52,7 @@ public class PitcherFlyoverFoundingGameTest {
 		context.getLevel().setBlockAndUpdate(log, Blocks.OAK_LOG.defaultBlockState());
 		boolean placed = BusyBeeSupport.tryAttachNestToTree(context.getLevel(), origin, log);
 		context.assertTrue(placed, "a log in the founding band should take a nest");
-		boolean foundNest = BlockPos.findClosestMatch(log, 3, 2, pos -> context.getLevel().getBlockState(pos).is(Blocks.BEE_NEST)).isPresent();
+		boolean foundNest = BusyBeeSupport.findClosestMatch(log, 3, 2, pos -> context.getLevel().getBlockState(pos).is(Blocks.BEE_NEST)).isPresent();
 		context.assertTrue(foundNest, "nest block should exist next to the log");
 		context.succeed();
 	}

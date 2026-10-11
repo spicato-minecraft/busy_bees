@@ -9,6 +9,7 @@ import net.minecraft.world.entity.animal.bee.Bee;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.BonemealSource;
 import net.minecraft.world.level.block.BonemealableBlock;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.StemBlock;
@@ -21,6 +22,9 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import org.jspecify.annotations.Nullable;
+
+import java.util.Optional;
+import java.util.function.Predicate;
 
 public final class BusyBeeSupport {
 
@@ -62,12 +66,31 @@ public final class BusyBeeSupport {
 		return level.isRaining();
 	}
 
+	/**
+	 * 26.2 {@code BlockPos.findClosestMatch}: closest hit inside a horizontal/vertical box,
+	 * ordered by Manhattan distance. 26.3 folded that search into
+	 * {@link BlockPos#withinBoxByManhattanDistance}.
+	 */
+	public static Optional<BlockPos> findClosestMatch(
+			BlockPos origin,
+			int horizontalRange,
+			int verticalRange,
+			Predicate<BlockPos> predicate
+	) {
+		for (BlockPos pos : BlockPos.withinBoxByManhattanDistance(origin, horizontalRange, verticalRange, horizontalRange)) {
+			if (predicate.test(pos)) {
+				return Optional.of(pos);
+			}
+		}
+		return Optional.empty();
+	}
+
 	public static boolean hasQualifyingTorchflowerInRange(Level level, BlockPos origin) {
 		return hasQualifyingTorchflowerInRange(level, origin, HIVE_NECTAR_RANGE, HIVE_NECTAR_VERTICAL);
 	}
 
 	public static boolean hasQualifyingTorchflowerInRange(Level level, BlockPos origin, int horizontalRange, int verticalRange) {
-		return BlockPos.findClosestMatch(
+		return findClosestMatch(
 				origin,
 				horizontalRange,
 				verticalRange,
@@ -129,7 +152,7 @@ public final class BusyBeeSupport {
 	}
 
 	public static boolean isOtherHiveOrNestInRange(Level level, BlockPos originHive, int horizontalRange, int verticalRange) {
-		return BlockPos.findClosestMatch(
+		return findClosestMatch(
 				originHive,
 				horizontalRange,
 				verticalRange,
@@ -185,7 +208,7 @@ public final class BusyBeeSupport {
 			int horizontalRange,
 			int verticalRange
 	) {
-		return BlockPos.findClosestMatch(
+		return findClosestMatch(
 				originHive,
 				horizontalRange,
 				verticalRange,
@@ -292,13 +315,13 @@ public final class BusyBeeSupport {
 		if (!(state.getBlock() instanceof BonemealableBlock growable)) {
 			return false;
 		}
-		if (!growable.isValidBonemealTarget(level, target, state)) {
+		if (!growable.isValidBonemealTarget(level, target, state, BonemealSource.MOB)) {
 			return false;
 		}
-		if (!growable.isBonemealSuccess(level, bee.getRandom(), target, state)) {
+		if (!growable.isBonemealSuccess(level, bee.getRandom(), target, state, BonemealSource.MOB)) {
 			return false;
 		}
-		growable.performBonemeal(level, bee.getRandom(), target, state);
+		growable.performBonemeal(level, bee.getRandom(), target, state, BonemealSource.MOB);
 		return true;
 	}
 

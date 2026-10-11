@@ -11,6 +11,9 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
+
+import java.util.function.Predicate;
 
 @Mixin(targets = "net.minecraft.world.entity.animal.bee.Bee$BeePollinateGoal")
 public abstract class BeePollinateGoalMixin {
@@ -19,15 +22,20 @@ public abstract class BeePollinateGoalMixin {
 	@Final
 	Bee this$0;
 
-	@WrapOperation(
+	@ModifyArg(
 			method = "findNearbyFlower",
 			at = @At(
 					value = "INVOKE",
-					target = "Lnet/minecraft/world/entity/animal/bee/Bee;attractsBees(Lnet/minecraft/world/level/block/state/BlockState;)Z"
+					target = "Lnet/minecraft/world/level/blockscan/OrderedBlockMatcher;filterState(Ljava/util/function/Predicate;)Lnet/minecraft/world/level/blockscan/OrderedBlockMatcher;"
 			)
 	)
-	private boolean busyBees$nightTargets(BlockState state, Operation<Boolean> original) {
-		return BusyBeeSupport.attractsBee(this.this$0.level(), this.this$0.blockPosition(), state, original.call(state));
+	private Predicate<BlockState> busyBees$nightTargets(Predicate<BlockState> vanilla) {
+		return state -> BusyBeeSupport.attractsBee(
+				this.this$0.level(),
+				this.this$0.blockPosition(),
+				state,
+				vanilla.test(state)
+		);
 	}
 
 	@WrapOperation(
